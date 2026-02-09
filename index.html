@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>PIXELWAVE PLAYER</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Pixel Font -->
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+<!-- Album art reader -->
+<script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
+
+<style>
+:root {
+  --bg: #05070a;
+  --neon-orange: #ff7a18;
+  --neon-blue: #00e5ff;
+  --panel: #0d1117;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #0b1320, var(--bg));
+  font-family: 'Press Start 2P', monospace;
+  color: var(--neon-blue);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.wrapper {
+  display: flex;
+  gap: 12px;
+}
+
+.queue {
+  width: 180px;
+  background: var(--panel);
+  border: 3px solid var(--neon-blue);
+  padding: 8px;
+  font-size: 7px;
+  overflow-y: auto;
+  max-height: 360px;
+}
+
+.queue div {
+  padding: 6px;
+  cursor: pointer;
+  border-bottom: 1px dashed #00e5ff55;
+}
+
+.queue div:hover {
+  background: #00e5ff22;
+}
+
+.player {
+  width: 340px;
+  background: var(--panel);
+  border: 4px solid var(--neon-orange);
+  box-shadow: 0 0 25px #ff7a1855;
+  padding: 16px;
+}
+
+.title {
+  text-align: center;
+  color: var(--neon-orange);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.canvas-wrap {
+  border: 3px solid var(--neon-blue);
+  margin-bottom: 10px;
+  background: black;
+}
+
+canvas {
+  width: 100%;
+  image-rendering: pixelated;
+}
+
+.track {
+  margin: 10px 0 6px;
+  font-size: 10px;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 0 6px #00e5ff88;
+}
+
+.seek {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+input[type="range"] {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: #00e5ff33;
+  outline: none;
+}
+
+/* square retro thumb */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--neon-orange);
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--neon-orange);
+  border: none;
+  cursor: pointer;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+button {
+  background: black;
+  border: 3px solid var(--neon-orange);
+  color: var(--neon-orange);
+  padding: 8px;
+  font-family: inherit;
+  font-size: 8px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--neon-orange);
+  color: black;
+}
+
+input[type="file"] { display: none; }
+
+label {
+  display: block;
+  text-align: center;
+  border: 3px dashed var(--neon-blue);
+  padding: 10px;
+  font-size: 8px;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+  <div class="queue" id="queue">NO TRACKS</div>
+
+  <div class="player">
+    <div class="title">PixelPatt</div>
+
+    <div class="canvas-wrap">
+      <canvas id="art" width="128" height="128"></canvas>
+    </div>
+
+    <audio id="audio"></audio>
+
+    <!-- SONG NAME -->
+    <div class="track" id="trackName">NO TRACK LOADED</div>
+
+    <!-- TIMELINE -->
+    <div class="seek">
+      <input type="range" id="seek" value="0" min="0" max="100">
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls">
+      <button onclick="prevTrack()">⏮</button>
+      <button id="playBtn" onclick="togglePlay()">▶</button>
+      <button onclick="nextTrack()">⏭</button>
+    </div>
+
+    <!-- LOAD -->
+    <label>
+      LOAD TRACKS
+      <input type="file" accept="audio/*" multiple onchange="loadPlaylist(event)">
+    </label>
+  </div>
+
+</div>
+
+<script>
+const audio = document.getElementById("audio");
+const canvas = document.getElementById("art");
+const ctx = canvas.getContext("2d");
+const trackName = document.getElementById("trackName");
+const seek = document.getElementById("seek");
+const queueEl = document.getElementById("queue");
+const playBtn = document.getElementById("playBtn");
+
+let playlist = [];
+let currentIndex = 0;
+
+/* ================= PLAYLIST ================= */
+
+function loadPlaylist(e) {
+  playlist = [...e.target.files];
+  renderQueue();
+  playTrack(0);
+}
+
+function renderQueue() {
+  queueEl.innerHTML = "";
+  playlist.forEach((file, i) => {
+    const div = document.createElement("div");
+    div.textContent = file.name;
+    div.onclick = () => playTrack(i);
+    queueEl.appendChild(div);
+  });
+}
+
+function playTrack(index) {
+  currentIndex = index;
+  const file = playlist[index];
+  audio.src = URL.createObjectURL(file);
+  trackName.textContent = file.name.toUpperCase();
+  extractAlbumArt(file);
+  audio.play();
+  playBtn.textContent = "⏸";
+}
+
+/* ================= CONTROLS ================= */
+
+function togglePlay() {
+  if (audio.paused) {
+    audio.play();
+    playBtn.textContent = "⏸";
+  } else {
+    audio.pause();
+    playBtn.textContent = "▶";
+  }
+}
+
+function nextTrack() {
+  if (currentIndex < playlist.length - 1)
+    playTrack(currentIndex + 1);
+}
+
+function prevTrack() {
+  if (currentIndex > 0)
+    playTrack(currentIndex - 1);
+}
+
+audio.addEventListener("ended", () => {
+  playBtn.textContent = "▶";
+});
+
+/* ================= SEEK BAR ================= */
+
+audio.addEventListener("timeupdate", () => {
+  seek.value = (audio.currentTime / audio.duration) * 100 || 0;
+});
+
+seek.addEventListener("input", () => {
+  audio.currentTime = (seek.value / 100) * audio.duration;
+});
+
+/* ================= ALBUM ART → PIXEL ================= */
+
+function extractAlbumArt(file) {
+  jsmediatags.read(file, {
+    onSuccess: tag => {
+      const pic = tag.tags.picture;
+      if (!pic) return drawFallback();
+
+      let base64 = "";
+      pic.data.forEach(b => base64 += String.fromCharCode(b));
+
+      const img = new Image();
+      img.src = `data:${pic.format};base64,${btoa(base64)}`;
+      img.onload = () => pixelate(img);
+    },
+    onError: drawFallback
+  });
+}
+
+function pixelate(img) {
+  const temp = document.createElement("canvas");
+  const tctx = temp.getContext("2d");
+
+  const scale = 4; // more recognisable
+  temp.width = 128 / scale;
+  temp.height = 128 / scale;
+
+  tctx.drawImage(img, 0, 0, temp.width, temp.height);
+
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, 128, 128);
+  ctx.drawImage(temp, 0, 0, 128, 128);
+}
+
+function drawFallback() {
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, 128, 128);
+}
+</script>
+
+</body>
+</html>
