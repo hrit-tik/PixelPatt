@@ -105,7 +105,6 @@ input[type="range"] {
   outline: none;
 }
 
-/* square retro thumb */
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -172,22 +171,18 @@ label {
 
     <audio id="audio"></audio>
 
-    <!-- SONG NAME -->
     <div class="track" id="trackName">NO TRACK LOADED</div>
 
-    <!-- TIMELINE -->
     <div class="seek">
       <input type="range" id="seek" value="0" min="0" max="100">
     </div>
 
-    <!-- CONTROLS -->
     <div class="controls">
       <button onclick="prevTrack()">⏮</button>
       <button id="playBtn" onclick="togglePlay()">▶</button>
       <button onclick="nextTrack()">⏭</button>
     </div>
 
-    <!-- LOAD -->
     <label>
       LOAD TRACKS
       <input type="file" accept="audio/*" multiple onchange="loadPlaylist(event)">
@@ -211,9 +206,15 @@ let currentIndex = 0;
 /* ================= PLAYLIST ================= */
 
 function loadPlaylist(e) {
-  playlist = [...e.target.files];
+  const newFiles = [...e.target.files];
+  const wasEmpty = playlist.length === 0;
+
+  playlist.push(...newFiles);
   renderQueue();
-  playTrack(0);
+
+  if (wasEmpty && playlist.length > 0) {
+    playTrack(0);
+  }
 }
 
 function renderQueue() {
@@ -249,17 +250,24 @@ function togglePlay() {
 }
 
 function nextTrack() {
-  if (currentIndex < playlist.length - 1)
+  if (currentIndex < playlist.length - 1) {
     playTrack(currentIndex + 1);
+  }
 }
 
 function prevTrack() {
-  if (currentIndex > 0)
+  if (currentIndex > 0) {
     playTrack(currentIndex - 1);
+  }
 }
 
+/* AUTO PLAY NEXT */
 audio.addEventListener("ended", () => {
-  playBtn.textContent = "▶";
+  if (currentIndex < playlist.length - 1) {
+    playTrack(currentIndex + 1);
+  } else {
+    playBtn.textContent = "▶";
+  }
 });
 
 /* ================= SEEK BAR ================= */
@@ -295,7 +303,7 @@ function pixelate(img) {
   const temp = document.createElement("canvas");
   const tctx = temp.getContext("2d");
 
-  const scale = 4; // more recognisable
+  const scale = 4;
   temp.width = 128 / scale;
   temp.height = 128 / scale;
 
